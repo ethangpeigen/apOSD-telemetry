@@ -3,7 +3,7 @@
 An OSD-style telemetry screen for **EdgeTX / OpenTX** radios and the **RadioMaster AX12**, for **ArduPilot** vehicles
 over **CRSF / ELRS**. It shows on the radio's own screen the same kind of information a goggle OSD shows: battery, GPS
 with an MGRS grid reference, speed, heading tape, home arrow and distance, flight mode, arm state, link quality and a
-flight timer.
+flight timer. The AX12 version also has a second page with an offline map under the vehicle.
 
 Inspired by the [iNav OpenTX Telemetry Widget](https://github.com/iNavFlight/OpenTX-Telemetry-Widget). This is original
 code for ArduPilot, not a copy of that project.

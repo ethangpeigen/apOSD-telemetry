@@ -245,6 +245,8 @@ def run(args):
         if last:
             for _ in range(args.enter):  # ENTER key presses before the final frame
                 script.run(0x100)
+            for _ in range(max(0, args.settle - 1)):  # extra frames, e.g. so the map page can load its tiles one by one
+                script.run(0)
             script.run(0)
             if args.exit:
                 g.EVT_EXIT_BREAK_MOCK = 0x102
@@ -343,6 +345,7 @@ if __name__ == "__main__":
     ap.add_argument("--sd", help="use this folder as the radio's SD card instead of ../SD")
     ap.add_argument("--tool", action="store_true", help="run the launcher from SCRIPTS/TOOLS (AX12 style) instead of SCRIPTS/TELEMETRY")
     ap.add_argument("--exit", action="store_true", help="press EXIT after the last frame and report what run() returns")
+    ap.add_argument("--settle", type=int, default=1, help="draw this many frames after the key presses")
     ap.add_argument("--enter", type=int, default=0, help="press ENTER this many times before the last frame")
     ap.add_argument("--expect", action="append", help="exit with an error unless this exact text is drawn on the last frame")
     ap.add_argument("--log", action="store_true", help="AX12 log source: fake the app's log file (source=log)")

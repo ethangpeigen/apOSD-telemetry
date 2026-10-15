@@ -118,13 +118,34 @@ local function horizon()
   for _, o in ipairs({ -20, -10, 10, 20 }) do pl(o, W * 0.06, DIM) end
 end
 
+local mapmod
+local function loadMap()
+  local dir = cfg.dir or "/SCRIPTS/TELEMETRY/apOSD/"
+  local ok, f = pcall(loadScript, dir .. "map.lua")
+  if not ok or type(f) ~= "function" then return nil end
+  local parent = string.match(dir, "^(.*/)[^/]+/$") or dir
+  local ok2, m = pcall(f, cfg, d, cfg.mapDir or (parent .. "mp/"),
+    { put = put, line = line, arrow = arrow, FG = FG, DIM = DIM, WARN = WARN, BAD = BAD, GOOD = GOOD, FS = FS, FM = FM, hS = hS, hM = hM })
+  return ok2 and m or nil
+end
+function v.key(e) if mapmod then mapmod.key(e) end end
+
 function v.draw()
   local on = floor(getTime() / 50) % 2 == 0 -- ~0.5 s blink
   if not LIGHT then -- light theme: nothing to paint, the canvas is already pale
     lcd.clear(col(BG))
-    if bg then lcd.drawBitmap(bg, 0, 0, 100) end -- the 4th argument (scale, percent) is required on the AX12; without it nothing is drawn
+    if bg and not d.page then lcd.drawBitmap(bg, 0, 0, 100) end -- the 4th argument (scale, percent) is required on the AX12; without it nothing is drawn
   end
 
+  if d.page and cfg.map ~= false then -- page 2: the map
+    mapmod = mapmod or loadMap()
+    if mapmod then
+      local ok = pcall(mapmod.draw)
+      if ok then return end
+    end
+    put(cx, cy, "map page unavailable", FM, WARN, "c")
+    return
+  end
   if cfg.horizon then horizon() end
   -- crosshair
   line(cx - 28, cy, cx - 10, cy, FG); line(cx + 10, cy, cx + 28, cy, FG)

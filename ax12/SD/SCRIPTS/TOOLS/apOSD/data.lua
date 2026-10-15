@@ -244,6 +244,7 @@ function d.update()
   -- home
   if d.armed and d.fix and not d.home then
     hlat, hlon, halt = d.lat, d.lon, al
+    d.hlat, d.hlon = hlat, hlon -- the map page draws the home marker
     d.home = true
   end
   if d.home and d.fix then

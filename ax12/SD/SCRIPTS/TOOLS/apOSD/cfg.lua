@@ -15,6 +15,11 @@ return {
   source    = "log",   -- "log": read the app's own log file (the AX12 app gives Lua no telemetry); "link": normal sensors
   logFile   = "",      -- log source: a fixed file such as "/2026_10_15.txt" to replay; empty = today's file
   maxAge    = 8,       -- log source: seconds without a new line before it counts as no telemetry
+  mapZoom   = 16,      -- map page (press Enter): starting zoom; Up / Down change it. Tiles come from tools/make_map.py
+  mapDir    = "/mp/",   -- map tiles folder (short path: this radio failed to open a 36-character one)
+  mapMin    = 12,      -- lowest and highest zoom that your tile pack contains (Up / Down stop here)
+  mapMax    = 16,
+  mapTrail  = true,    -- map page: draw the path travelled
   theme     = "dark",  -- "dark": own dark background (+ picture if it loads); "light": dark text on the radio's pale screen
   background = true, -- dark theme only: dimmed picture behind the OSD (bg_<W>x<H>.png next to this file)
 }

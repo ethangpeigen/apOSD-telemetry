@@ -69,7 +69,8 @@ local function run(event)
   local ok, e = pcall(d.update)
   if ok then
     if isLong(event) then d.resetHome() end -- long Enter: home = here
-    if isEnter(event) then d.flip() end
+    if isEnter(event) then d.flip() end -- Enter: OSD page <-> map page
+    if view.key then view.key(event) end -- Up / Down: map zoom
     lcd.clear()
     ok, e = pcall(view.draw)
   end

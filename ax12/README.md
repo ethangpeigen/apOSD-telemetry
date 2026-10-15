@@ -41,6 +41,7 @@ usual sensors (`RxBt`, `GPS`, `Sats`, `GSpd`, `Yaw`, `Ptch`, `Roll`, `FM`, `RQly
   screen, and a replay of a real recorded log, which showed the correct battery, heading and position.
 * Verified in the simulator: fresh, stale, missing and no-fix logs; the sensor mode; Lua 5.2, 5.3 and 5.4 on a mock radio
   without string methods; and the log reader against a real 1,700-line log (`tools/probe/test_reallog.py`).
+* **Map page:** verified on a real AX12 with synthetic tiles (zoom, arrow, trail, scale bar). Real imagery on the radio and following a live vehicle are not yet verified.
 * **Not yet verified:** following a live vehicle in real time.
 
 ## Install
@@ -54,7 +55,8 @@ adb push SD/SCRIPTS/TOOLS/apOSD.lua /sdcard/AX12LUA/SCRIPTS/TOOLS/apOSD.lua
 adb push SD/SCRIPTS/TOOLS/apOSD/cfg.lua /sdcard/AX12LUA/SCRIPTS/TOOLS/apOSD/cfg.lua
 adb push SD/SCRIPTS/TOOLS/apOSD/data.lua /sdcard/AX12LUA/SCRIPTS/TOOLS/apOSD/data.lua
 adb push SD/SCRIPTS/TOOLS/apOSD/color.lua /sdcard/AX12LUA/SCRIPTS/TOOLS/apOSD/color.lua
-adb shell touch /sdcard/AX12LUA/SCRIPTS/TOOLS/apOSD.lua /sdcard/AX12LUA/SCRIPTS/TOOLS/apOSD/cfg.lua /sdcard/AX12LUA/SCRIPTS/TOOLS/apOSD/data.lua /sdcard/AX12LUA/SCRIPTS/TOOLS/apOSD/color.lua
+adb push SD/SCRIPTS/TOOLS/apOSD/map.lua /sdcard/AX12LUA/SCRIPTS/TOOLS/apOSD/map.lua
+adb shell touch /sdcard/AX12LUA/SCRIPTS/TOOLS/apOSD.lua /sdcard/AX12LUA/SCRIPTS/TOOLS/apOSD/cfg.lua /sdcard/AX12LUA/SCRIPTS/TOOLS/apOSD/data.lua /sdcard/AX12LUA/SCRIPTS/TOOLS/apOSD/color.lua /sdcard/AX12LUA/SCRIPTS/TOOLS/apOSD/map.lua
 ```
 
 Then **fully close and reopen the RadioMaster app**, open its **Lua** tab and tap **apOSD**. The **Exit** button closes it.
@@ -71,6 +73,7 @@ AX12LUA/SCRIPTS/TOOLS
     ├── cfg.lua          your settings
     ├── data.lua
     ├── color.lua
+    ├── map.lua          the map page
     └── b.png            optional background picture
 ```
 
@@ -88,6 +91,8 @@ With no vehicle linked there is no log for today, so you see a flashing **NO TEL
 | `cells` | `0` | cell count; 0 guesses from the first voltage reading |
 | `cellWarn` / `cellCrit` | `3.50` / `3.30` | volts per cell for yellow / red |
 | `mgrs` / `mgrsDigits` | `true` / `3` | MGRS position; digits per axis (3 = 100 m, 4 = 10 m, 5 = 1 m) |
+| `mapZoom` / `mapMin` / `mapMax` | `16` / `12` / `16` | map page: starting zoom and the zoom levels your tile pack has |
+| `mapDir` / `mapTrail` | `"/mp/"` / `true` | map page: tile folder; draw the path travelled |
 | `showAlt`, `horizon`, `beeps`, `minSats`, `armSwitch`, `background` | | as in the EdgeTX versions |
 
 ## Optional background picture
@@ -103,6 +108,33 @@ It writes `SD/SCRIPTS/TOOLS/apOSD/b.png`; copy it to the radio next to the other
 The file must keep the short name `b.png`: this radio failed to open the longer `bg_480x272.png`. Without a picture
 the screen is plain dark. `lcd.drawBitmap(bitmap, x, y, 100)` needs its fourth argument (scale, percent) on this radio;
 without it nothing is drawn.
+
+## Map page (press Enter in apOSD)
+
+Enter switches between the OSD page and a **map page**: offline map tiles under the vehicle, a heading arrow, a home
+marker (`H`), the path travelled, the MGRS position, distance from home and a scale bar. Up / Down zoom.
+
+Tiles are ordinary 256 px web-map tiles stored as `<zoom>_<x>_<y>.jpg` in a folder on the radio (`mapDir`, default
+`/mp/`, which is `AX12LUA/mp`). Make them on a PC with `tools/make_map.py`:
+
+```
+pip install pillow
+# a synthetic test map, no internet needed:
+python tools/make_map.py --demo --center 38.8895 -77.0353 --radius 1500 --zooms 16 17 18 --out mp
+# real imagery from a source YOU are allowed to use (you must read its terms):
+python tools/make_map.py --url "https://YOUR-TILE-SERVER/{z}/{y}/{x}" --center LAT LON --radius 4000 --zooms 13 14 15 16 --out mp
+adb push mp /sdcard/AX12LUA/
+```
+
+The script has no built-in tile provider on purpose. It downloads one tile at a time with a pause, stops above
+`--max-tiles` (1500), skips tiles the provider does not have (open water), and sends your own `--user-agent`. Public
+OpenStreetMap servers forbid bulk downloads, and most satellite imagery needs a licence or key, so choose a source whose
+terms allow what you do. Tiles do not belong in this repository (`mp/` is ignored). Set `mapMin` / `mapMax` in `cfg.lua`
+to the zoom levels your pack really contains. A bigger area needs many more tiles at each zoom: use low zoom levels for the
+whole area and high ones only where you drive.
+
+Notes: the position comes from the app's log on this radio, which is rounded (about 11 m by 90 m), so the arrow jumps; the map
+is more accurate on a radio with real GPS telemetry. One new tile is loaded per frame, so a new view fills in over a second or two.
 
 ## Tools for finding out what a radio gives scripts (`tools/probe/`)
 

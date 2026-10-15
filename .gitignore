@@ -13,3 +13,7 @@ bg_*.png
 b.png
 bg.png
 assets/
+
+# map tiles are big and come from a provider with its own terms
+mp/
+mp_*/
