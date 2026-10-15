@@ -1,0 +1,15 @@
+out/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# the radio writes compiled copies and the probes write reports
+*.luac
+apProbe*.txt
+
+# no pictures in the public edition
+bg_*.png
+b.png
+bg.png
+assets/
