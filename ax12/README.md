@@ -32,6 +32,12 @@ So this version **reads that log** (`source = "log"` in `cfg.lua`). It means:
 | Position as MGRS, home arrow and distance | log, but **rounded** (about 11 m in latitude and about 90 m in longitude), so MGRS is shown to 100 m and home distance is approximate |
 | Satellite count, speed, flight mode, armed state, link quality | **not available** (shown as `GPS` / `NO FIX`, `--`, nothing) |
 
+**The radio's clock.** On the AX12 tested, Lua's `getDateTime()` reports 1970-01-01 (the clock is not set for Lua) while the
+app names and stamps its log with the Android clock, possibly in another time zone. So the log reader never trusts the Lua
+date: it looks for the newest `YYYY_MM_DD.txt` (a few days around the Lua date if that looks real, otherwise a scan from 2026),
+and treats the data as live while new lines keep arriving. If you see NO TELEMETRY, the small line under it says which file
+was looked at and why.
+
 If a future app version passes telemetry to Lua, set `source = "link"` and `mgrsDigits = 5`: the same code then reads the
 usual sensors (`RxBt`, `GPS`, `Sats`, `GSpd`, `Yaw`, `Ptch`, `Roll`, `FM`, `RQly`, `1RSS`) and shows everything.
 
@@ -41,8 +47,8 @@ usual sensors (`RxBt`, `GPS`, `Sats`, `GSpd`, `Yaw`, `Ptch`, `Roll`, `FM`, `RQly
   screen, and a replay of a real recorded log, which showed the correct battery, heading and position.
 * Verified in the simulator: fresh, stale, missing and no-fix logs; the sensor mode; Lua 5.2, 5.3 and 5.4 on a mock radio
   without string methods; and the log reader against a real 1,700-line log (`tools/probe/test_reallog.py`).
-* **Map page:** verified on a real AX12 with synthetic tiles (zoom, arrow, trail, scale bar). Real imagery on the radio and following a live vehicle are not yet verified.
-* **Not yet verified:** following a live vehicle in real time.
+* **Map page:** verified on a real AX12 with real USGS imagery tiles and a live vehicle (zoom, arrow, home marker, trail, scale bar).
+* Verified on a real AX12 with a live vehicle (OSD page and map page).
 
 ## Install
 

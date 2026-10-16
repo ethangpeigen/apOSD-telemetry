@@ -73,19 +73,101 @@ local function fileEnd(fh)
   return hi
 end
 
+-- The app names the log after ITS clock's date: /YYYY_MM_DD.txt. The Lua clock cannot be trusted: this radio may be set to
+-- another time zone, or not set at all (it reported 1970-01-01). So: with a believable Lua date take the newest file among
+-- yesterday / today / tomorrow; otherwise look for the newest dated file from 2026 on, a little each frame. "Fresh" is judged
+-- by new lines arriving (getTime ticks), never by comparing clocks.
+local DIM_ = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 }
+local function dim(yy, mm)
+  if mm == 2 and yy % 4 == 0 and (yy % 100 ~= 0 or yy % 400 == 0) then return 29 end
+  return DIM_[mm]
+end
+local function nextDay(y, m, dd)
+  dd = dd + 1
+  if dd > dim(y, m) then dd, m = 1, m + 1 end
+  if m > 12 then m, y = 1, y + 1 end
+  return y, m, dd
+end
+local function nameOf(y, m, dd) return string.format("/%04d_%02d_%02d.txt", y, m, dd) end
+local function ymd(t, off)
+  local y, m, dd = t.year, t.mon, t.day + off
+  if dd < 1 then
+    m = m - 1
+    if m < 1 then m, y = 12, y - 1 end
+    dd = dim(y, m)
+  elseif dd > dim(y, m) then
+    dd, m = 1, m + 1
+    if m > 12 then m, y = 1, y + 1 end
+  end
+  return nameOf(y, m, dd)
+end
+local function exists(n)
+  local fh = io.open(n, "r")
+  if fh then io.close(fh); return true end
+  return false
+end
+
+local lastNew, primed, nextPick, logNote = nil, false, 0, ""
+local bestN, by, bm, bd = nil, 0, 0, 0        -- newest dated log found by scanning (when the Lua date is not believable)
+local sy, sm, sd, scanDone, nextRescan = 2026, 1, 1, false, 0
+
+-- scan for dated files, at most ~30 ms per call
+local function scanSome()
+  local t0 = getTime()
+  local n = 0
+  while not scanDone and n < 400 and getTime() - t0 < 3 do
+    local nm = nameOf(sy, sm, sd)
+    if exists(nm) then bestN, by, bm, bd = nm, sy, sm, sd end
+    sy, sm, sd = nextDay(sy, sm, sd)
+    if sy > 2032 then scanDone = true end
+    n = n + 1
+  end
+end
+
 -- returns true while the log is fresh (a new line within cfg.maxAge seconds)
 local function readLog(now)
+  local replay = cfg.logFile ~= ""
+  local t = getDateTime()
+  local believable = t.year >= 2024
+  if not replay and not believable and not scanDone then
+    scanSome()
+    if not scanDone then logNote = "looking for the log file..."; return false end
+  end
   if now < nextRead then return d.alive end
   nextRead = now + 50
-  local t = getDateTime()
-  local name = cfg.logFile ~= "" and cfg.logFile or string.format("/%04d_%02d_%02d.txt", t.year, t.mon, t.day)
-  if name ~= logname then closeLog(); logname = name; logbuf = "" end
+  local name = logname
+  if replay then
+    name = cfg.logFile
+  elseif name == "" or now >= nextPick then -- look again every 2 s: the app may start a new day's file
+    nextPick = now + 200
+    if believable then
+      name = ymd(t, 0)
+      for off = 1, -1, -1 do
+        local n = ymd(t, off)
+        if exists(n) then name = n; break end
+      end
+    else
+      if bestN then -- is there a newer day's file than the one found?
+        local y, m, dd = by, bm, bd
+        for _ = 1, 3 do
+          y, m, dd = nextDay(y, m, dd)
+          if exists(nameOf(y, m, dd)) then bestN, by, bm, bd = nameOf(y, m, dd), y, m, dd end
+        end
+      elseif now >= nextRescan then -- nothing there yet: look again in 10 s
+        nextRescan = now + 1000
+        sy, sm, sd, scanDone = 2026, 1, 1, false
+      end
+      name = bestN or "/(no dated log yet)"
+    end
+  end
+  if name ~= logname then closeLog(); logname = name; logbuf = ""; primed = false; lastNew = nil end
   if not logfh then
     logfh = io.open(name, "r")
-    if not logfh then return false end
+    if not logfh then logNote = "no log file " .. name; return false end
     logpos = math.max(0, fileEnd(logfh) - 400) -- start near the end; the first, partial line is dropped below
     logbuf = ""
     lastSample = nil
+    primed = false
   end
   io.seek(logfh, logpos)
   while true do
@@ -116,12 +198,20 @@ local function readLog(now)
       logv.Capa = mah
       lastSample = stamp
       logv.stamp = stamp
+      if primed then lastNew = now end -- the lines read when the file was opened are history, not news
     end
   end
-  if not logv.stamp then return false end
-  local age = (t.hour * 3600 + t.min * 60 + t.sec - logv.stamp) % 86400
-  return age <= (cfg.maxAge or 8)
+  primed = true
+  if not logv.stamp then logNote = name .. " has no readable line"; return false end
+  if replay then -- a fixed file: compare with the clock, as before
+    local age = (t.hour * 3600 + t.min * 60 + t.sec - logv.stamp) % 86400
+    return age <= (cfg.maxAge or 8)
+  end
+  local fresh = lastNew ~= nil and (now - lastNew) <= (cfg.maxAge or 8) * 100
+  logNote = fresh and "" or (name .. " no new line")
+  return fresh
 end
+d.logNote = function() return logNote end
 
 -- distance (m) and initial bearing (deg) from point 1 to point 2
 local function geo(lat1, lon1, lat2, lon2)

@@ -125,7 +125,7 @@ local function loadMap()
   if not ok or type(f) ~= "function" then return nil end
   local parent = string.match(dir, "^(.*/)[^/]+/$") or dir
   local ok2, m = pcall(f, cfg, d, cfg.mapDir or (parent .. "mp/"),
-    { put = put, line = line, arrow = arrow, FG = FG, DIM = DIM, WARN = WARN, BAD = BAD, GOOD = GOOD, FS = FS, FM = FM, hS = hS, hM = hM })
+    { put = put, line = line, arrow = arrow, BG = BG, fill = function(x, y, w, h, c) lcd.drawFilledRectangle(x, y, w, h, col(c)) end, FG = FG, DIM = DIM, WARN = WARN, BAD = BAD, GOOD = GOOD, FS = FS, FM = FM, hS = hS, hM = hM })
   return ok2 and m or nil
 end
 function v.key(e) if mapmod then mapmod.key(e) end end
@@ -199,6 +199,10 @@ function v.draw()
     if not LIGHT then lcd.drawFilledRectangle(cx - floor(w / 2) - 8, y - 3, w + 16, h + 6, col(BG)) end -- keeps it readable over the picture
     lcd.drawRectangle(cx - floor(w / 2) - 8, y - 3, w + 16, h + 6, col(mc))
     put(cx, y, msg, FM, mc, "c")
+    if not d.alive and d.logNote then -- why: which log file was looked at
+      local note = d.logNote()
+      if note ~= "" then put(cx, y + h + 10, note, FS, DIM, "c") end
+    end
   end
 end
 

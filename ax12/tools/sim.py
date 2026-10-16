@@ -185,10 +185,15 @@ def run(args):
     def vf_exists(path): return args.log and not args.nolog and str(path) == "/2026_10_15.txt"
     def vf_read(path, pos, n): return bytes(vfile[int(pos):int(pos) + int(n)]).decode("latin-1")
     g.VF_EXISTS, g.VF_READ, g.BASESECS = vf_exists, vf_read, BASE
+    g.CLOCKSHIFT = args.clockshift * 3600
+    g.EPOCH = args.epoch
     lua.execute("""
         function getDateTime()
-          local s = BASESECS + math.floor(((STATE.ticks or 2000) - 2000) / 100)
-          return { year = 2026, mon = 10, day = 15, hour = math.floor(s / 3600) % 24, min = math.floor(s / 60) % 60, sec = s % 60 }
+          local s = BASESECS + CLOCKSHIFT + math.floor(((STATE.ticks or 2000) - 2000) / 100)
+          local day = 15 + math.floor(s / 86400)  -- crossing midnight moves the date, like a real clock
+          s = s % 86400
+          if EPOCH then return { year = 1970, mon = 1, day = 1, hour = math.floor(s / 3600) % 24, min = math.floor(s / 60) % 60, sec = s % 60 } end
+          return { year = 2026, mon = 10, day = day, hour = math.floor(s / 3600) % 24, min = math.floor(s / 60) % 60, sec = s % 60 }
         end
         io = { open = function(p, m) if VF_EXISTS(p) then return { path = p, pos = 0 } end return nil end,
                seek = function(fh, off) fh.pos = off end,
@@ -232,7 +237,7 @@ def run(args):
         print(f"Lua memory: script uses {first - base:.1f} KB after init (64-bit desktop Lua, so the radio will differ); "
               f"after {args.reinit} more init calls: {mem() - base:.1f} KB")
 
-    frames = 12
+    frames = args.frames
     for i in range(frames):
         last = i == frames - 1
         sens, rssi = scenario(args.scenario, i, frames)
@@ -351,6 +356,10 @@ if __name__ == "__main__":
     ap.add_argument("--log", action="store_true", help="AX12 log source: fake the app's log file (source=log)")
     ap.add_argument("--logage", type=int, default=0, help="--log: how many seconds old the newest log line is")
     ap.add_argument("--nolog", action="store_true", help="--log: the log file does not exist")
+    ap.add_argument("--frames", type=int, default=12, help="how many frames to run (10 ticks each) before the picture")
+    ap.add_argument("--epoch", action="store_true", help="--log: the radio's Lua clock is not set and reports 1970-01-01")
+    ap.add_argument("--clockshift", type=int, default=0, metavar="HOURS",
+                    help="--log: the radio's Lua clock differs from the app's log clock by this many hours (e.g. -8 for UTC vs UTC+8)")
     ap.add_argument("--nofix", action="store_true", help="--log: the log lines carry lat/lng 0 (no GPS fix)")
     ap.add_argument("--stringmeta", action="store_true", help="allow s:sub() style calls (the real radio does NOT)")
     ap.add_argument("--failbin", help="simulate a bad cached .luac for this file; the text-only retry should recover")
